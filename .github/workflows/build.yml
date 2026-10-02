@@ -11,24 +11,48 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Restore build cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: buildozer-v1-${{ hashFiles('buildozer.spec') }}
+          restore-keys: buildozer-v1-
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip openjdk-17-jdk autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
+          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev
       - name: Install Buildozer
         run: |
           python -m pip install --upgrade pip
           pip install buildozer cython==0.29.37
       - name: Build APK
         shell: bash
-        run: buildozer -v android debug 2>&1 | tee build.log
+        run: |
+          java -version
+          buildozer -v android debug 2>&1 | tee build.log
+      - name: Save build cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.buildozer
+            .buildozer
+          key: buildozer-v1-${{ hashFiles('buildozer.spec') }}
       - name: Show the error
         if: failure()
         run: |
-          echo "===== LINES WITH ERRORS ====="
-          grep -n -i -E "error:|fatal|failed|traceback|no such file" build.log | tail -25
-          echo "===== LAST 40 LINES ====="
-          tail -n 40 build.log
+          echo "===== WHAT WENT WRONG ====="
+          grep -n -A12 "What went wrong" build.log | head -40
+          echo "===== JAVA ====="
+          java -version 2>&1 | head -3
+          echo "===== LAST 25 LINES ====="
+          tail -n 25 build.log | cut -c1-200
       - uses: actions/upload-artifact@v4
         with:
           name: RobloxTools-apk
